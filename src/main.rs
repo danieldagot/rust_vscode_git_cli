@@ -1,8 +1,15 @@
-extern crate clap;
+use clap::{Parser, arg};
 
-use clap::Arg;
 use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
+
+/// A struct to hold the command-line arguments.
+#[derive(Parser, Debug)]
+struct Args {
+    /// Name of the person to greet
+    #[arg(short, long)]
+    directory: String,
+}
 
 fn is_not_hidden(entry: &DirEntry) -> bool {
     let file_name = entry.file_name().to_str().unwrap_or("");
@@ -40,22 +47,9 @@ fn search_git_repositories(root_path: &Path) -> Vec<PathBuf> {
 }
 
 fn main() {
-    let matches = clap::App::new("Git Repo List")
-        .version("1.0")
-        .author("Your Name")
-        .about("Lists Git repositories in a directory")
-        .arg(
-            Arg::with_name("directory")
-                .short("d")
-                .long("directory")
-                .value_name("DIR")
-                .help("The directory to search for Git repositories")
-                .takes_value(true)
-                .default_value("."),
-        )
-        .get_matches();
+    let args = Args::parse();
 
-    let start_dir = Path::new(matches.value_of("directory").unwrap_or("."));
+    let start_dir = Path::new(&args.directory);
 
     let git_repositories = search_git_repositories(&start_dir);
 

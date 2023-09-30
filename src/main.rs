@@ -1,14 +1,25 @@
-use clap::{Parser, arg};
-
+use clap::{Command, Arg, ValueHint, value_parser, ArgAction};
+use clap_complete::{generate, Generator, Shell};
+use std::io;
 use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
 
-/// A struct to hold the command-line arguments.
-#[derive(Parser, Debug)]
-struct Args {
-    /// Name of the person to greet
-    #[arg(short, long)]
-    directory: String,
+fn build_cli() -> Command {
+    Command::new("search-git")
+        .arg(Arg::new("directory")
+            .short('d')  // <-- Add this line
+            .long("directory") // <-- Add this line
+            .required(true) 
+            .value_hint(ValueHint::AnyPath))
+        .arg(Arg::new("generator")
+            .long("generate")
+            .action(ArgAction::Set)
+            .value_parser(value_parser!(Shell)))
+}
+
+
+fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
+    generate(gen, cmd, cmd.get_name().to_string(), &mut io::stdout());
 }
 
 fn is_not_hidden(entry: &DirEntry) -> bool {
@@ -20,7 +31,7 @@ fn is_not_hidden(entry: &DirEntry) -> bool {
 }
 
 fn is_git_repository(entry: &DirEntry) -> bool {
-    entry
+    entry 
         .file_name()
         .to_str()
         .map(|s| s == ".git")
@@ -36,7 +47,6 @@ fn search_git_repositories(root_path: &Path) -> Vec<PathBuf> {
         .filter_map(|v| v.ok())
     {
         if is_git_repository(&entry) {
-            // Get the parent directory and push it to the vector
             if let Some(parent) = entry.path().parent() {
                 git_repositories.push(parent.to_path_buf());
             }
@@ -47,14 +57,18 @@ fn search_git_repositories(root_path: &Path) -> Vec<PathBuf> {
 }
 
 fn main() {
-    let args = Args::parse();
+    let matches = build_cli().get_matches();
 
-    let start_dir = Path::new(&args.directory);
+    if let Some(generator) = matches.get_one::<Shell>("generator").copied() {
+        let mut cmd = build_cli();
+        eprintln!("Generating completion file for {generator}...");
+        print_completions(generator, &mut cmd);
+    } else if let Some(directory) = matches.get_one::<String>("directory") {
 
-    let git_repositories = search_git_repositories(&start_dir);
-
-    // Print the parent directories of Git repositories
-    for repo_path in &git_repositories {
-        println!("{}", repo_path.display());
+        let start_dir = Path::new(directory);
+        let git_repositories = search_git_repositories(&start_dir);
+        for repo_path in &git_repositories {
+            println!("{}", repo_path.display());
+        }
     }
 }
